@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<html>
+<head>
+    <title>CIFAR 100</title>
+</head>
+
+
+<style>
+    h1 {
+        text-align: center;
+        margin-top: 2rem;
+        color: #555;
+        font-size: 2rem;
+    }
+
+    form {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 2rem;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #555;
+        font-size: 1.2rem;
+    }
+
+    input[type="file"] {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        padding: 0.5rem;
+        font-size: 1.2rem;
+        color: #555;
+        background-color: #fff;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    input[type="submit"] {
+        background-color: #f7cac9;
+        color: #555;
+        font-size: 1.2rem;
+        padding: 0.5rem 1rem;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    body {
+        font: 20px sans-serif;
+
+  background-image: url("https://img.freepik.com/free-vector/hand-painted-watercolor-pastel-sky-background_23-2148902771.jpg");
+  background-size: cover;
+
+    }
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+    .bar {
+        fill: lightcyan;
+    }
+
+    .bar:hover {
+        fill: darkcyan;
+    }
+
+    .x.axis path {
+        display: none;
+    }
+
+</style>
+
+
+<body>
+
+<h1 style="font-size: 2rem; color: #555; text-align: center; margin-bottom: 2rem;">Image Classifier</h1>
+<form action="/predict_object/" method="POST" enctype="multipart/form-data"
+      style="display: flex; flex-direction: column; align-items: center;">
+    <label for="image" style="color: #555; font-size: 1.2rem; margin-bottom: 1rem;">Upload an Image:</label>
+    <input type="file" name="image" id="image" accept="image/*"
+           style="display: block; margin-bottom: 1rem; border: 1px solid #ccc; padding: 0.5rem;">
+    <input type="submit" value="Upload" onclick="previewImage();"
+           style="background-color: #f7cac9; color: #555; font-size: 1.2rem; padding: 0.5rem 1rem; border: none; cursor: pointer;">
+</form>
+
+{% if message %}
+    <p>{{ message }}</p><br>
+
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+    <script>
+        //JS to go here
+        function previewImage() {
+            var preview = document.getElementById('preview');
+            var file = document.querySelector('input[type=file]').files[0];
+            var reader = new FileReader();
+
+            reader.addEventListener("load", function () {
+                preview.src = reader.result;
+                preview.style.display = "block";
+            }, false);
+
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        }
+
+        var data =
+        {{ data|safe }}
+
+
+
+        {% if data %}
+
+            // set the dimensions of the canvas
+            var margin = {top: 20, right: 20, bottom: 130, left: 100},
+                width = 600 - margin.left - margin.right,
+                height = 500 - margin.top - margin.bottom;
+
+
+            // set the ranges
+            var x = d3.scale.ordinal().rangeRoundBands([0, width], .05);
+            var y = d3.scale.linear().range([height, 0]);
+
+            // define the axis
+            var xAxis = d3.svg.axis()
+                .scale(x)
+                .orient("bottom")
+                .ticks(5);
+
+
+            var yAxis = d3.svg.axis()
+                .scale(y)
+                .orient("left")
+                .ticks(10);
+
+            var tip = d3.tip()
+                .attr('class', 'd3-tip')
+                .offset([10, 0])
+                .html(function (d) {
+                    return "<strong>Probability:</strong> <span style='color:red'>" + d.frequency + "</span>";
+                })
+
+            x.domain(data.map(function (d) {
+                return d.name;
+            }));
+            y.domain([0, 1]);
+
+            // add the SVG element
+            var svg = d3.select("body").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform",
+                    "translate(" + margin.left + "," + margin.top + ")");
+
+            svg.call(tip);
+
+            svg.selectAll(".bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                    return x(d.name);
+                })
+                .attr("width", x.rangeBand())
+                .attr("y", function (d) {
+                    return y(d.probability);
+                })
+                .attr("height", function (d) {
+                    return height - y(d.probability);
+                })
+                .on('mouseover', tip.show)
+                .on('mouseout', tip.hide)
+
+            // add axis
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis)
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", "-.55em")
+                .attr("transform", "rotate(-90)");
+
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -65)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("Probability");
+
+
+            // Add bar chart
+            svg.selectAll("bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                    return x(d.name);
+                })
+                .attr("width", x.rangeBand())
+                .attr("y", function (d) {
+                    return y(d.probability);
+                })
+                .attr("height", function (d) {
+                    return height - y(d.probability);
+                });
+
+
+        {% endif %}
+
+    </script>
+{% endif %}
+
+</body>
+</html>
